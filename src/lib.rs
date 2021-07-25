@@ -1,23 +1,5 @@
-use http_body::Body;
+pub mod body;
+pub use body::BodyExt;
 
-mod aggregate;
-pub use aggregate::{Aggregate, AggregateFuture};
-
-
-pub trait BodyExt: Body {
-    fn aggregate(&mut self, content_len: usize) -> AggregateFuture<'_, Self>
-    where
-        Self: Unpin + Sized,
-        Self::Data: Unpin
-    {
-       AggregateFuture::new(self, content_len)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
-    }
-}
+pub mod request;
+pub use request::RequestExt;
