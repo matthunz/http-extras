@@ -45,12 +45,9 @@ where
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         self.project().aggregate.poll(cx).map(|result| {
-            result
-                .map_err(|error| JsonError::Aggregate(error))
-                .and_then(|bufs| {
-                    serde_json::from_reader(bufs.reader())
-                        .map_err(|error| JsonError::Deserialize(error))
-                })
+            result.map_err(JsonError::Aggregate).and_then(|bufs| {
+                serde_json::from_reader(bufs.reader()).map_err(JsonError::Deserialize)
+            })
         })
     }
 }

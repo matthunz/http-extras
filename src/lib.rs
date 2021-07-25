@@ -1,5 +1,8 @@
-pub mod body;
-pub use body::BodyExt;
+mod body;
+pub use body::{Aggregate, AggregateFuture, BodyExt, JsonFuture};
 
-pub mod request;
-pub use request::RequestExt;
+mod request;
+pub use request::{Authorization, RequestExt};
+
+mod response;
+pub use response::ResponseExt;
