@@ -5,9 +5,16 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 use std::{collections::VecDeque, future::Future};
 
+pub enum AggregateError<E> {
+    Body(E),
+    ContentLength,
+}
+
 pub struct AggregateFuture<'b, B: Body> {
     body: &'b mut B,
-    buf: Option<Aggregate<B::Data>>,
+    bufs: Option<Aggregate<B::Data>>,
+    content_len: usize,
+    used: usize,
 }
 
 impl<'b, B> AggregateFuture<'b, B>
@@ -15,10 +22,12 @@ where
     B: Body + Unpin,
     B::Data: Unpin,
 {
-    pub(crate) fn new(body: &'b mut B) -> Self {
+    pub(crate) fn new(body: &'b mut B, content_len: usize) -> Self {
         Self {
             body,
-            buf: Some(Aggregate::new()),
+            bufs: Some(Aggregate::new()),
+            content_len,
+            used: 0,
         }
     }
 }
@@ -28,19 +37,26 @@ where
     B: Body + Unpin,
     B::Data: Unpin,
 {
-    type Output = Result<Aggregate<B::Data>, B::Error>;
+    type Output = Result<Aggregate<B::Data>, AggregateError<B::Error>>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         let me = self.get_mut();
         loop {
             match Pin::new(&mut me.body).poll_data(cx) {
                 Poll::Ready(Some(Ok(data))) => {
-                    if let Some(ref mut buf) = me.buf {
+                    me.used += data.remaining();
+                    if me.content_len > me.used {
+                        break Poll::Ready(Err(AggregateError::ContentLength));
+                    }
+
+                    if let Some(ref mut buf) = me.bufs {
                         buf.push(data);
                     }
                 }
-                Poll::Ready(Some(Err(error))) => break Poll::Ready(Err(error)),
-                Poll::Ready(None) => break Poll::Ready(Ok(me.buf.take().unwrap())),
+                Poll::Ready(Some(Err(error))) => {
+                    break Poll::Ready(Err(AggregateError::Body(error)))
+                }
+                Poll::Ready(None) => break Poll::Ready(Ok(me.bufs.take().unwrap())),
                 Poll::Pending => break Poll::Pending,
             }
         }

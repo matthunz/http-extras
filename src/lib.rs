@@ -5,12 +5,12 @@ pub use aggregate::{Aggregate, AggregateFuture};
 
 
 pub trait BodyExt: Body {
-    fn aggregate(&mut self) -> AggregateFuture<'_, Self>
+    fn aggregate(&mut self, content_len: usize) -> AggregateFuture<'_, Self>
     where
         Self: Unpin + Sized,
         Self::Data: Unpin
     {
-       AggregateFuture::new(self)
+       AggregateFuture::new(self, content_len)
     }
 }
 
